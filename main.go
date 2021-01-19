@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 	"syscall"
@@ -21,6 +22,10 @@ var (
 	adbAddress  *walk.TextEdit
 	console     *walk.TextEdit
 	startButton *walk.PushButton
+
+	existingAdbPid = -1
+
+	kernel32 = syscall.NewLazyDLL("kernel32.dll")
 )
 
 func init() {
@@ -102,6 +107,14 @@ func main() {
 		md.SetIcon(icon)
 	}
 	md.Run()
+	if existingAdbPid == 0 {
+		// kill adb server if it is created by this program
+		if pid := findADBProcess(); pid > 0 {
+			if p, _ := os.FindProcess(pid); p != nil {
+				p.Kill()
+			}
+		}
+	}
 }
 
 func start() {
@@ -122,6 +135,9 @@ func start() {
 			run("cmd", "/c", `scrcpy\adb.exe`, "devices"),
 			run("cmd", "/c", `scrcpy\scrcpy.exe`),
 		)
+		if existingAdbPid == -1 {
+			existingAdbPid = findADBProcess()
+		}
 		for _, f := range funcs {
 			if f() != true {
 				return
@@ -167,7 +183,52 @@ func logReader(r io.Reader) {
 }
 
 func alreadyRunning() bool {
-	procCreateMutex := syscall.NewLazyDLL("kernel32.dll").NewProc("CreateMutexW")
+	procCreateMutex := kernel32.NewProc("CreateMutexW")
 	_, _, err := procCreateMutex.Call(0, 0, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("goscrcpy"))))
 	return int(err.(syscall.Errno)) != 0
+}
+
+func findADBProcess() (pid int) {
+	// github.com/mitchellh/go-ps
+	handle, _, _ := kernel32.NewProc("CreateToolhelp32Snapshot").Call(0x00000002, 0)
+	if handle < 0 {
+		return
+	}
+	defer kernel32.NewProc("CloseHandle").Call(handle)
+	var entry struct {
+		Size              uint32
+		CntUsage          uint32
+		ProcessID         uint32
+		DefaultHeapID     uintptr
+		ModuleID          uint32
+		CntThreads        uint32
+		ParentProcessID   uint32
+		PriorityClassBase int32
+		Flags             uint32
+		ExeFile           [260]uint16
+	}
+	entry.Size = uint32(unsafe.Sizeof(entry))
+	ret, _, _ := kernel32.NewProc("Process32FirstW").Call(handle, uintptr(unsafe.Pointer(&entry)))
+	if ret == 0 {
+		return
+	}
+	for {
+		e := &entry
+		end := 0
+		for {
+			if e.ExeFile[end] == 0 {
+				break
+			}
+			end++
+		}
+		if syscall.UTF16ToString(e.ExeFile[:end]) == "adb.exe" {
+			pid = int(e.ProcessID)
+			return
+		}
+		ret, _, _ := kernel32.NewProc("Process32NextW").Call(handle, uintptr(unsafe.Pointer(&entry)))
+		if ret == 0 {
+			break
+		}
+	}
+	return
 }
