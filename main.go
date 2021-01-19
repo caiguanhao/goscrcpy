@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+	"unsafe"
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
@@ -37,11 +38,16 @@ func init() {
 }
 
 func main() {
+	windowTitle := fmt.Sprintf("Android Remote Control (ver %s)", version)
+	if alreadyRunning() {
+		win.SetForegroundWindow(win.FindWindow(nil, syscall.StringToUTF16Ptr(windowTitle)))
+		return
+	}
 	var md *walk.Dialog
 	Dialog{
 		AssignTo:  &md,
 		Layout:    VBox{},
-		Title:     fmt.Sprintf("Android Remote Control (ver %s)", version),
+		Title:     windowTitle,
 		MinSize:   Size{600, 400},
 		FixedSize: true,
 		Children: []Widget{
@@ -158,4 +164,10 @@ func logReader(r io.Reader) {
 	for scanner.Scan() {
 		log.Println(scanner.Text())
 	}
+}
+
+func alreadyRunning() bool {
+	procCreateMutex := syscall.NewLazyDLL("kernel32.dll").NewProc("CreateMutexW")
+	_, _, err := procCreateMutex.Call(0, 0, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("goscrcpy"))))
+	return int(err.(syscall.Errno)) != 0
 }
