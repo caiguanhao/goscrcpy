@@ -1,18 +1,32 @@
+#define AppName "Android Remote Control"
+#define AppNameNoSpace "AndroidRemoteControl"
+#define AppNameShort "goscrcpy"
+#define AppExe "goscrcpy.exe"
+
 [Setup]
-AppName=Android Remote Control
-AppVersion=1.0
+AppName={#AppName}
+AppVersion=1.1
 WizardStyle=modern
-DefaultDirName={autopf}\AndroidRemoteControl
-DefaultGroupName=Android Remote Control
-UninstallDisplayIcon={app}\goscrcpy.exe
+DefaultDirName={autopf}\{#AppNameNoSpace}
+DefaultGroupName={#AppName}
+UninstallDisplayIcon={app}\{#AppExe}
 Compression=lzma2
 SolidCompression=yes
+;Compression=none
 OutputDir=.
-OutputBaseFilename=goscrcpy-{#SetupSetting("AppVersion")}
+OutputBaseFilename={#AppNameShort}-{#SetupSetting("AppVersion")}
+SetupIconFile=icon.ico
+
+[Run]
+Filename: "{app}\{#AppExe}"; Description: "Launch application"; Flags: postinstall nowait skipifsilent
+
+[Tasks]
+Name: desktopicon; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"
 
 [Files]
-Source: "goscrcpy.exe"; DestDir: "{app}"
+Source: "{#AppExe}"; DestDir: "{app}"
 Source: "scrcpy\*"; DestDir: "{app}\scrcpy"
 
 [Icons]
-Name: "{group}\Android Remote Control"; Filename: "{app}\goscrcpy.exe"
+Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
+Name: "{commondesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon

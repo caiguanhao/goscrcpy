@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"log"
 	"os/exec"
+	"strings"
 	"syscall"
 
 	"github.com/lxn/walk"
@@ -13,6 +15,8 @@ import (
 )
 
 var (
+	version = "1.1"
+
 	adbAddress  *walk.TextEdit
 	console     *walk.TextEdit
 	startButton *walk.PushButton
@@ -37,7 +41,7 @@ func main() {
 	Dialog{
 		AssignTo:  &md,
 		Layout:    VBox{},
-		Title:     "Android Remote Control",
+		Title:     fmt.Sprintf("Android Remote Control (ver %s)", version),
 		MinSize:   Size{600, 400},
 		FixedSize: true,
 		Children: []Widget{
@@ -100,12 +104,18 @@ func start() {
 	go func() {
 		defer adbAddress.SetReadOnly(false)
 		defer startButton.SetEnabled(true)
-		funcs := []func() bool{
-			run("cmd", "/c", `scrcpy\adb.exe`, "disconnect"),
-			run("cmd", "/c", `scrcpy\adb.exe`, "connect", adbAddress.Text()),
+		funcs := []func() bool{}
+		addr := strings.TrimSpace(adbAddress.Text())
+		if addr != "" {
+			funcs = append(funcs,
+				run("cmd", "/c", `scrcpy\adb.exe`, "disconnect"),
+				run("cmd", "/c", `scrcpy\adb.exe`, "connect", addr),
+			)
+		}
+		funcs = append(funcs,
 			run("cmd", "/c", `scrcpy\adb.exe`, "devices"),
 			run("cmd", "/c", `scrcpy\scrcpy.exe`),
-		}
+		)
 		for _, f := range funcs {
 			if f() != true {
 				return
