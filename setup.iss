@@ -5,7 +5,7 @@
 
 [Setup]
 AppName={#AppName}
-AppVersion=1.1
+AppVersion=1.2
 WizardStyle=modern
 DefaultDirName={autopf}\{#AppNameNoSpace}
 DefaultGroupName={#AppName}
